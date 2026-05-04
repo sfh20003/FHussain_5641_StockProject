@@ -2,57 +2,93 @@ name: Daily Portfolio Update
 
 on:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 14 * * 1-5'   # 9 AM EST every weekday
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   run-notebook:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install jupyter nbconvert papermill yfinance pandas numpy matplotlib seaborn scipy
+          pip install jupyter nbconvert yfinance pandas numpy \
+                      matplotlib seaborn pyomo requests lxml
 
-      - name: Run notebook with Papermill
+      - name: Install Bonmin
         run: |
-          papermill "FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb" \
-            "FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb" \
-            --no-progress-bar \
-            --log-output || true
+          pip install idaes-pse --pre
+          idaes get-extensions --to ./bin
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
 
-      - name: Convert notebook to HTML
+      - name: Run notebook
         run: |
-          mkdir -p docs
-          jupyter nbconvert --to html \
-            --output-dir docs \
-            --output notebook_output.html \
-            "FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb"
+          jupyter nbconvert \
+            --to notebook \
+            --execute \
+            --inplace \
+            --ExecutePreprocessor.timeout=900 \
+            FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb
 
-      - name: Commit and push changes
+      - name: Generate dashboard from notebook output
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add -A
-          git diff --staged --quiet || git commit -m "Auto-update: daily notebook run $(date -u '+%Y-%m-%d %H:%M UTC')"
+          python << 'EOF'
+          import json, re, os
+          from datetime import datetime
+
+          # Read the executed notebook
+          with open('FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb', 'r') as f:
+              nb = json.load(f)
+
+          # Extract printed output from the summary cell
+          # Look for the DATA json output we embed in the notebook
+          data_found = False
+          for cell in nb['cells']:
+              for output in cell.get('outputs', []):
+                  text = ''.join(output.get('text', []))
+                  if '##DASHBOARD_DATA##' in text:
+                      raw = text.split('##DASHBOARD_DATA##')[1].split('##END_DATA##')[0]
+                      data_obj = json.loads(raw.strip())
+                      data_found = True
+                      break
+
+          if not data_found:
+              print("Dashboard data marker not found — using fallback date")
+              data_obj = {"run_date": datetime.today().strftime('%Y-%m-%d'),
+                          "window_date": "see notebook", "exp_ret": "see notebook",
+                          "banned": [], "holdings": [], "universe": [],
+                          "strategies": [], "metrics": [],
+                          "dates": [], "bonmin": [], "spy": [], "gc": [],
+                          "sharpe_b": [], "sharpe_s": [], "sharpe_g": []}
+
+          os.makedirs('docs', exist_ok=True)
+          with open('docs/index.html', 'r') as f:
+              html = f.read()
+
+          new_block = f"const DATA = {json.dumps(data_obj, indent=2)};"
+          start = html.find('const DATA = {')
+          end   = html.find('};', start) + 2
+          html  = html[:start] + new_block + html[end:]
+
+          with open('docs/index.html', 'w') as f:
+              f.write(html)
+
+          print(f"Dashboard updated: {data_obj.get('window_date')} return={data_obj.get('exp_ret')}")
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb docs/index.html
+          git diff --staged --quiet || \
+            git commit -m "Auto-update: $(date +'%Y-%m-%d %H:%M UTC')"
           git push
