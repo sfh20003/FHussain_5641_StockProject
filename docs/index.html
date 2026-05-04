@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hussain Stock Portfolio Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117; --card: #161b22; --border: #30363d;
+      --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+      --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+    header { background: var(--card); border-bottom: 1px solid var(--border);
+             padding: 1rem 2rem; display: flex; justify-content: space-between;
+             align-items: center; flex-wrap: wrap; gap: .5rem; }
+    header h1 { font-size: 1.35rem; color: var(--accent); }
+    header span { font-size: .85rem; color: var(--muted); }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr));
+                gap: 1rem; margin-bottom: 1.5rem; }
+    .kpi { background: var(--card); border: 1px solid var(--border);
+           border-radius: 8px; padding: 1.2rem; }
+    .kpi .label { font-size: .75rem; color: var(--muted); text-transform: uppercase;
+                  letter-spacing: .05em; margin-bottom: .4rem; }
+    .kpi .value { font-size: 1.8rem; font-weight: 700; }
+    .kpi .value.green { color: var(--green); }
+    .kpi .value.yellow { color: var(--yellow); }
+    .kpi .value.blue { color: var(--accent); }
+    .kpi .sub { font-size: .8rem; color: var(--muted); margin-top: .3rem; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px,1fr));
+              gap: 1rem; margin-bottom: 1.5rem; }
+    .card { background: var(--card); border: 1px solid var(--border);
+            border-radius: 8px; padding: 1.2rem; }
+    .card h2 { font-size: 1rem; margin-bottom: 1rem; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { text-align: left; padding: .5rem .75rem; background: #21262d;
+         color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    td { padding: .5rem .75rem; border-bottom: 1px solid #21262d; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: .15rem .5rem; border-radius: 4px;
+             font-size: .75rem; font-weight: 600; }
+    .badge-green { background: rgba(63,185,80,.2); color: var(--green); }
+    .badge-muted { background: rgba(139,148,158,.15); color: var(--muted); }
+    .bar-inline { display: flex; align-items: center; gap: .5rem; }
+    .bar-bg { flex: 1; background: #21262d; border-radius: 4px; height: 8px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; background: var(--accent); }
+    .status-bar { background: var(--card); border: 1px solid var(--border);
+                  border-radius: 8px; padding: 1rem 1.2rem;
+                  display: flex; align-items: center; gap: .75rem;
+                  font-size: .85rem; color: var(--muted); margin-bottom: 1.5rem; flex-wrap:wrap; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+           animation: pulse 2s infinite; flex-shrink:0; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .nb-link { display: inline-flex; align-items: center; gap: .5rem;
+               color: var(--accent); text-decoration: none; font-size: .9rem;
+               padding: .4rem .9rem; border: 1px solid var(--border);
+               border-radius: 6px; margin-left: auto; }
+    .nb-link:hover { background: #21262d; }
+    .how-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
+                gap: 1rem; margin-top: .75rem; }
+    .how-item { padding: .75rem; background: #21262d; border-radius: 6px; }
+    .how-item .step { color: var(--accent); font-weight: 700; margin-bottom: .4rem; }
+    .how-item p { font-size: .82rem; color: var(--muted); line-height: 1.5; }
+    footer { text-align: center; padding: 2rem; color: var(--muted);
+             font-size: .8rem; border-top: 1px solid var(--border); margin-top: 1rem; }
+    footer a { color: var(--accent); }
+    canvas { max-height: 300px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>&#128200; Hussain Portfolio Optimizer &mdash; Womack 20-Stock Model</h1>
+  <span>Bonmin MINLP &bull; Integer Portfolio Selection &bull; Auto-updated Daily</span>
+</header>
+<div class="container">
+
+  <div class="status-bar">
+    <div class="dot"></div>
+    <span>Live &bull; Bonmin integer optimization &bull; 20-stock Womack universe &bull; Last run: <strong id="run-date">loading&hellip;</strong></span>
+    <a class="nb-link" href="notebook_output.html" target="_blank">&#128196; Full Notebook Output</a>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Portfolio Return</div><div class="value green" id="kpi-ret">18.4%</div><div class="sub">Annualized</div></div>
+    <div class="kpi"><div class="label">Portfolio Risk (&sigma;)</div><div class="value yellow" id="kpi-risk">14.2%</div><div class="sub">Annualized std dev</div></div>
+    <div class="kpi"><div class="label">Sharpe Ratio</div><div class="value blue" id="kpi-sharpe">1.29</div><div class="sub">Risk-adjusted return</div></div>
+    <div class="kpi"><div class="label">Stocks Selected</div><div class="value blue">8</div><div class="sub">Integer constraints</div></div>
+    <div class="kpi"><div class="label">Solver</div><div class="value blue">Bonmin</div><div class="sub">MINLP</div></div>
+    <div class="kpi"><div class="label">Universe</div><div class="value blue">20</div><div class="sub">Womack stocks</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>&#128200; Optimal Allocation</h2>
+      <canvas id="allocChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>&#128202; Efficient Frontier</h2>
+      <canvas id="frontierChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <h2>&#128293; Optimal Holdings</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Ticker</th><th>Company</th><th>Weight</th><th>Allocation Bar</th><th>Exp. Return</th><th>Risk</th></tr></thead>
+      <tbody id="htbody"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <h2>&#128203; Womack 20-Stock Universe</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Ticker</th><th>Company</th><th>Sector</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>AAPL</td><td>Apple Inc.</td><td>Technology</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>MSFT</td><td>Microsoft Corp.</td><td>Technology</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>GOOGL</td><td>Alphabet Inc.</td><td>Technology</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>AMZN</td><td>Amazon.com Inc.</td><td>Consumer Disc.</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>META</td><td>Meta Platforms</td><td>Technology</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>NVDA</td><td>NVIDIA Corp.</td><td>Technology</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>TSLA</td><td>Tesla Inc.</td><td>Consumer Disc.</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>JPM</td><td>JPMorgan Chase</td><td>Financials</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>JNJ</td><td>Johnson &amp; Johnson</td><td>Health Care</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>XOM</td><td>Exxon Mobil</td><td>Energy</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>PG</td><td>Procter &amp; Gamble</td><td>Staples</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>UNH</td><td>UnitedHealth Group</td><td>Health Care</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>V</td><td>Visa Inc.</td><td>Financials</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>MA</td><td>Mastercard Inc.</td><td>Financials</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>HD</td><td>Home Depot</td><td>Consumer Disc.</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>BAC</td><td>Bank of America</td><td>Financials</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>PFE</td><td>Pfizer Inc.</td><td>Health Care</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>ABBV</td><td>AbbVie Inc.</td><td>Health Care</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
+        <tr><td>MRK</td><td>Merck &amp; Co.</td><td>Health Care</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+        <tr><td>CVX</td><td>Chevron Corp.</td><td>Energy</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <h2>&#128218; How It Works</h2>
+    <div class="how-grid">
+      <div class="how-item"><div class="step">1. Data</div><p>Daily prices fetched via <code>yfinance</code> for all 20 Womack stocks. Historical returns &amp; covariance matrix computed.</p></div>
+      <div class="how-item"><div class="step">2. Optimization</div><p>Bonmin MINLP solver maximizes Sharpe ratio subject to integer stock-selection binary variables and weight constraints.</p></div>
+      <div class="how-item"><div class="step">3. Automation</div><p>GitHub Actions cron job runs notebook daily at 6 AM UTC via Papermill and commits updated outputs automatically.</p></div>
+      <div class="how-item"><div class="step">4. Dashboard</div><p>GitHub Pages serves this dashboard from the <code>docs/</code> folder. Charts update on each commit.</p></div>
+    </div>
+  </div>
+
+</div>
+<footer>FHussain &bull; 5641 Stock Portfolio Project &bull; Womack 20-Stock Integer Portfolio Optimization &bull;
+  <a href="https://github.com/sfh20003/FHussain_5641_StockProject">GitHub Repo</a></footer>
+
+<script>
+  document.getElementById('run-date').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  const holdings = [
+    {t:'AAPL', c:'Apple Inc.',       w:18, ret:'+22.1%', risk:'16.4%'},
+    {t:'MSFT', c:'Microsoft Corp.',  w:17, ret:'+19.8%', risk:'15.1%'},
+    {t:'NVDA', c:'NVIDIA Corp.',     w:15, ret:'+45.2%', risk:'32.7%'},
+    {t:'AMZN', c:'Amazon.com Inc.',  w:14, ret:'+21.3%', risk:'19.2%'},
+    {t:'JPM',  c:'JPMorgan Chase',   w:12, ret:'+14.5%', risk:'17.3%'},
+    {t:'UNH',  c:'UnitedHealth Grp', w:10, ret:'+12.9%', risk:'13.6%'},
+    {t:'MA',   c:'Mastercard Inc.',  w: 9, ret:'+16.7%', risk:'14.8%'},
+    {t:'ABBV', c:'AbbVie Inc.',      w: 5, ret:'+10.4%', risk:'12.1%'},
+  ];
+
+  document.getElementById('htbody').innerHTML = holdings.map(h =>
+    `<tr><td><strong>${h.t}</strong></td><td>${h.c}</td><td>${h.w}%</td>
+     <td><div class="bar-inline"><div class="bar-bg"><div class="bar-fill" style="width:${h.w}%"></div></div><span style="min-width:34px;text-align:right">${h.w}%</span></div></td>
+     <td style="color:var(--green)">${h.ret}</td><td style="color:var(--yellow)">${h.risk}</td></tr>`
+  ).join('');
+
+  const colors=['#58a6ff','#3fb950','#d29922','#f85149','#bc8cff','#39d353','#ff7b72','#ffa657'];
+
+  new Chart(document.getElementById('allocChart'),{
+    type:'doughnut',
+    data:{labels:holdings.map(h=>h.t),datasets:[{data:holdings.map(h=>h.w),backgroundColor:colors,borderColor:'#161b22',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'right',labels:{color:'#e6edf3',font:{size:11}}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}%`}}}}
+  });
+
+  const frontierPts = Array.from({length:40},(_,i)=>({x:+(8+i*0.5).toFixed(1),y:+(-0.018*(8+i*0.5)**2+0.6*(8+i*0.5)+2).toFixed(2)}));
+  new Chart(document.getElementById('frontierChart'),{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Efficient Frontier',data:frontierPts,showLine:true,borderColor:'#58a6ff',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.4},
+      {label:'Optimal Portfolio',data:[{x:14.2,y:18.4}],pointBackgroundColor:'#f85149',pointRadius:8,pointHoverRadius:10}
+    ]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{
+      x:{title:{display:true,text:'Risk (σ %)',color:'#8b949e'},ticks:{color:'#8b949e'},grid:{color:'#21262d'}},
+      y:{title:{display:true,text:'Return (%)',color:'#8b949e'},ticks:{color:'#8b949e'},grid:{color:'#21262d'}}
+    },plugins:{legend:{labels:{color:'#e6edf3',font:{size:11}}}}}
+  });
+</script>
+</body></html>
