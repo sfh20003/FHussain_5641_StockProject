@@ -1,0 +1,58 @@
+name: Daily Portfolio Update
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-notebook:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install jupyter nbconvert papermill yfinance pandas numpy matplotlib seaborn scipy
+
+      - name: Run notebook with Papermill
+        run: |
+          papermill "FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb" \
+            "FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb" \
+            --no-progress-bar \
+            --log-output || true
+
+      - name: Convert notebook to HTML
+        run: |
+          mkdir -p docs
+          jupyter nbconvert --to html \
+            --output-dir docs \
+            --output notebook_output.html \
+            "FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb"
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          git diff --staged --quiet || git commit -m "Auto-update: daily notebook run $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
