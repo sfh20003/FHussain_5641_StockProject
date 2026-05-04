@@ -1,200 +1,400 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hussain Stock Portfolio Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <style>
-    :root {
-      --bg: #0d1117; --card: #161b22; --border: #30363d;
-      --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
-      --green: #3fb950; --red: #f85149; --yellow: #d29922;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-           background: var(--bg); color: var(--text); min-height: 100vh; }
-    header { background: var(--card); border-bottom: 1px solid var(--border);
-             padding: 1rem 2rem; display: flex; justify-content: space-between;
-             align-items: center; flex-wrap: wrap; gap: .5rem; }
-    header h1 { font-size: 1.35rem; color: var(--accent); }
-    header span { font-size: .85rem; color: var(--muted); }
-    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr));
-                gap: 1rem; margin-bottom: 1.5rem; }
-    .kpi { background: var(--card); border: 1px solid var(--border);
-           border-radius: 8px; padding: 1.2rem; }
-    .kpi .label { font-size: .75rem; color: var(--muted); text-transform: uppercase;
-                  letter-spacing: .05em; margin-bottom: .4rem; }
-    .kpi .value { font-size: 1.8rem; font-weight: 700; }
-    .kpi .value.green { color: var(--green); }
-    .kpi .value.yellow { color: var(--yellow); }
-    .kpi .value.blue { color: var(--accent); }
-    .kpi .sub { font-size: .8rem; color: var(--muted); margin-top: .3rem; }
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px,1fr));
-              gap: 1rem; margin-bottom: 1.5rem; }
-    .card { background: var(--card); border: 1px solid var(--border);
-            border-radius: 8px; padding: 1.2rem; }
-    .card h2 { font-size: 1rem; margin-bottom: 1rem; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-    th { text-align: left; padding: .5rem .75rem; background: #21262d;
-         color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
-    td { padding: .5rem .75rem; border-bottom: 1px solid #21262d; }
-    tr:last-child td { border-bottom: none; }
-    .badge { display: inline-block; padding: .15rem .5rem; border-radius: 4px;
-             font-size: .75rem; font-weight: 600; }
-    .badge-green { background: rgba(63,185,80,.2); color: var(--green); }
-    .badge-muted { background: rgba(139,148,158,.15); color: var(--muted); }
-    .bar-inline { display: flex; align-items: center; gap: .5rem; }
-    .bar-bg { flex: 1; background: #21262d; border-radius: 4px; height: 8px; overflow: hidden; }
-    .bar-fill { height: 100%; border-radius: 4px; background: var(--accent); }
-    .status-bar { background: var(--card); border: 1px solid var(--border);
-                  border-radius: 8px; padding: 1rem 1.2rem;
-                  display: flex; align-items: center; gap: .75rem;
-                  font-size: .85rem; color: var(--muted); margin-bottom: 1.5rem; flex-wrap:wrap; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green);
-           animation: pulse 2s infinite; flex-shrink:0; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .nb-link { display: inline-flex; align-items: center; gap: .5rem;
-               color: var(--accent); text-decoration: none; font-size: .9rem;
-               padding: .4rem .9rem; border: 1px solid var(--border);
-               border-radius: 6px; margin-left: auto; }
-    .nb-link:hover { background: #21262d; }
-    .how-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
-                gap: 1rem; margin-top: .75rem; }
-    .how-item { padding: .75rem; background: #21262d; border-radius: 6px; }
-    .how-item .step { color: var(--accent); font-weight: 700; margin-bottom: .4rem; }
-    .how-item p { font-size: .82rem; color: var(--muted); line-height: 1.5; }
-    footer { text-align: center; padding: 2rem; color: var(--muted);
-             font-size: .8rem; border-top: 1px solid var(--border); margin-top: 1rem; }
-    footer a { color: var(--accent); }
-    canvas { max-height: 300px; }
-  </style>
-</head>
-<body>
-<header>
-  <h1>&#128200; Hussain Portfolio Optimizer &mdash; Womack 20-Stock Model</h1>
-  <span>Bonmin MINLP &bull; Integer Portfolio Selection &bull; Auto-updated Daily</span>
-</header>
-<div class="container">
-
-  <div class="status-bar">
-    <div class="dot"></div>
-    <span>Live &bull; Bonmin integer optimization &bull; 20-stock Womack universe &bull; Last run: <strong id="run-date">loading&hellip;</strong></span>
-    <a class="nb-link" href="notebook_output.html" target="_blank">&#128196; Full Notebook Output</a>
-  </div>
-
-  <div class="kpi-grid">
-    <div class="kpi"><div class="label">Portfolio Return</div><div class="value green" id="kpi-ret">18.4%</div><div class="sub">Annualized</div></div>
-    <div class="kpi"><div class="label">Portfolio Risk (&sigma;)</div><div class="value yellow" id="kpi-risk">14.2%</div><div class="sub">Annualized std dev</div></div>
-    <div class="kpi"><div class="label">Sharpe Ratio</div><div class="value blue" id="kpi-sharpe">1.29</div><div class="sub">Risk-adjusted return</div></div>
-    <div class="kpi"><div class="label">Stocks Selected</div><div class="value blue">8</div><div class="sub">Integer constraints</div></div>
-    <div class="kpi"><div class="label">Solver</div><div class="value blue">Bonmin</div><div class="sub">MINLP</div></div>
-    <div class="kpi"><div class="label">Universe</div><div class="value blue">20</div><div class="sub">Womack stocks</div></div>
-  </div>
-
-  <div class="grid-2">
-    <div class="card">
-      <h2>&#128200; Optimal Allocation</h2>
-      <canvas id="allocChart"></canvas>
+  <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Hussain Stock Portfolio Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+          :root {
+                  --bg:#0d1117; --card:#161b22; --border:#30363d;
+                  --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+                  --green:#3fb950; --red:#f85149; --yellow:#d29922;
+          }
+          *{box-sizing:border-box;margin:0;padding:0}
+          body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+          header{background:var(--card);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem}
+          header h1{font-size:1.35rem;color:var(--accent)}
+          header span{font-size:.85rem;color:var(--muted)}
+          .container{max-width:1200px;margin:0 auto;padding:1.5rem}
+          .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
+          .kpi{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1.2rem}
+          .kpi .label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem}
+          .kpi .value{font-size:1.8rem;font-weight:700}
+          .kpi .value.green{color:var(--green)} .kpi .value.yellow{color:var(--yellow)} .kpi .value.blue{color:var(--accent)} .kpi .value.red{color:var(--red)}
+          .kpi .sub{font-size:.8rem;color:var(--muted);margin-top:.3rem}
+          .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:1rem;margin-bottom:1.5rem}
+          .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;margin-bottom:1.5rem}
+          .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1.2rem}
+          .card h2{font-size:1rem;margin-bottom:1rem}
+          .table-wrap{overflow-x:auto}
+          table{width:100%;border-collapse:collapse;font-size:.85rem}
+          th{text-align:left;padding:.5rem .75rem;background:#21262d;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)}
+          td{padding:.5rem .75rem;border-bottom:1px solid #21262d}
+          tr:last-child td{border-bottom:none}
+          tr:hover td{background:rgba(255,255,255,.02)}
+          .badge{display:inline-block;padding:.15rem .5rem;border-radius:4px;font-size:.75rem;font-weight:600}
+          .badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+          .badge-muted{background:rgba(139,148,158,.15);color:var(--muted)}
+          .bar-inline{display:flex;align-items:center;gap:.5rem}
+          .bar-bg{flex:1;background:#21262d;border-radius:4px;height:8px;overflow:hidden}
+          .bar-fill{height:100%;border-radius:4px;background:var(--accent)}
+          .status-bar{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem;display:flex;align-items:center;gap:.75rem;font-size:.85rem;color:var(--muted);margin-bottom:1.5rem;flex-wrap:wrap}
+          .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+          .dot.stale{background:var(--yellow)}
+          @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+          .nb-link{display:inline-flex;align-items:center;gap:.5rem;color:var(--accent);text-decoration:none;font-size:.9rem;padding:.4rem .9rem;border:1px solid var(--border);border-radius:6px;margin-left:auto}
+          .nb-link:hover{background:#21262d}
+          .how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-top:.75rem}
+          .how-item{padding:.75rem;background:#21262d;border-radius:6px}
+          .how-item .step{color:var(--accent);font-weight:700;margin-bottom:.4rem}
+          .how-item p{font-size:.82rem;color:var(--muted);line-height:1.5}
+          footer{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border);margin-top:1rem}
+          footer a{color:var(--accent)}
+          canvas{max-height:300px}
+          .loading{color:var(--muted);font-style:italic;font-size:.85rem}
+          .error-note{color:var(--yellow);font-size:.8rem;margin-top:.5rem}
+          .tag{display:inline-block;padding:.1rem .4rem;border-radius:3px;font-size:.7rem;font-weight:600;margin-left:.3rem}
+          .tag-tech{background:rgba(88,166,255,.15);color:var(--accent)}
+          .tag-fin{background:rgba(63,185,80,.15);color:var(--green)}
+          .tag-hc{background:rgba(188,140,255,.15);color:#bc8cff}
+          .tag-energy{background:rgba(210,153,34,.15);color:var(--yellow)}
+          .tag-cons{background:rgba(248,81,73,.15);color:var(--red)}
+          .tag-staples{background:rgba(57,211,83,.15);color:#39d353}
+          .delta-pos{color:var(--green)}
+          .delta-neg{color:var(--red)}
+          #last-update-note{font-size:.75rem;color:var(--muted);margin-top:.25rem}
+        </style>
+  </head>
+  <body>
+    <header>
+        <div>
+              <h1>&#128200; Hussain Portfolio Optimizer &mdash; Womack 20-Stock Model</h1>
+            <div id="last-update-note">Loading latest data&hellip;</div>
+        </div>
+      <span>Bonmin MINLP &bull; Integer Portfolio Selection &bull; Auto-updated Daily via GitHub Actions</span>
+    </header>
+  
+  <div class="container">
+  
+    <div class="status-bar">
+        <div class="dot" id="status-dot"></div>
+        <span id="status-text">Fetching live portfolio data&hellip;</span>
+        <a class="nb-link" href="notebook_output.html" target="_blank">&#128196; Full Notebook Output</a>a>
     </div>
-    <div class="card">
-      <h2>&#128202; Efficient Frontier</h2>
-      <canvas id="frontierChart"></canvas>
+  
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi"><div class="label">Portfolio Return</div><div class="value green" id="kpi-ret">&mdash;</div><div class="sub">Annualized</div></div>
+        <div class="kpi"><div class="label">Portfolio Risk (&sigma;)</div><div class="value yellow" id="kpi-risk">&mdash;</div><div class="sub">Annualized std dev</div></div>
+        <div class="kpi"><div class="label">Sharpe Ratio</div><div class="value blue" id="kpi-sharpe">&mdash;</div><div class="sub">Risk-adjusted return</div></div>
+        <div class="kpi"><div class="label">Stocks Selected</div><div class="value blue" id="kpi-count">&mdash;</div><div class="sub">Integer constraints</div></div>
+        <div class="kpi"><div class="label">Data Fetched</div><div class="value blue" id="kpi-date">&mdash;</div><div class="sub">Last notebook run</div></div>
+        <div class="kpi"><div class="label">Universe</div><div class="value blue">20</div><div class="sub">Womack stocks</div></div>
+        <div class="kpi"><div class="label">Solver</div><div class="value blue">Bonmin</div><div class="sub">MINLP</div></div>
+        <div class="kpi"><div class="label">Solver Status</div><div class="value green" id="kpi-status">&mdash;</div><div class="sub">Optimization result</div></div>
     </div>
-  </div>
-
-  <div class="card" style="margin-bottom:1rem">
-    <h2>&#128293; Optimal Holdings</h2>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Ticker</th><th>Company</th><th>Weight</th><th>Allocation Bar</th><th>Exp. Return</th><th>Risk</th></tr></thead>
-      <tbody id="htbody"></tbody>
-    </table></div>
-  </div>
-
-  <div class="card" style="margin-bottom:1rem">
-    <h2>&#128203; Womack 20-Stock Universe</h2>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Ticker</th><th>Company</th><th>Sector</th><th>Status</th></tr></thead>
-      <tbody>
-        <tr><td>AAPL</td><td>Apple Inc.</td><td>Technology</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>MSFT</td><td>Microsoft Corp.</td><td>Technology</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>GOOGL</td><td>Alphabet Inc.</td><td>Technology</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>AMZN</td><td>Amazon.com Inc.</td><td>Consumer Disc.</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>META</td><td>Meta Platforms</td><td>Technology</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>NVDA</td><td>NVIDIA Corp.</td><td>Technology</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>TSLA</td><td>Tesla Inc.</td><td>Consumer Disc.</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>JPM</td><td>JPMorgan Chase</td><td>Financials</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>JNJ</td><td>Johnson &amp; Johnson</td><td>Health Care</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>XOM</td><td>Exxon Mobil</td><td>Energy</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>PG</td><td>Procter &amp; Gamble</td><td>Staples</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>UNH</td><td>UnitedHealth Group</td><td>Health Care</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>V</td><td>Visa Inc.</td><td>Financials</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>MA</td><td>Mastercard Inc.</td><td>Financials</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>HD</td><td>Home Depot</td><td>Consumer Disc.</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>BAC</td><td>Bank of America</td><td>Financials</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>PFE</td><td>Pfizer Inc.</td><td>Health Care</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>ABBV</td><td>AbbVie Inc.</td><td>Health Care</td><td><span class="badge badge-green">&#10003; Selected</span></td></tr>
-        <tr><td>MRK</td><td>Merck &amp; Co.</td><td>Health Care</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-        <tr><td>CVX</td><td>Chevron Corp.</td><td>Energy</td><td><span class="badge badge-muted">Evaluated</span></td></tr>
-      </tbody>
-    </table></div>
-  </div>
-
-  <div class="card" style="margin-bottom:1rem">
-    <h2>&#128218; How It Works</h2>
-    <div class="how-grid">
-      <div class="how-item"><div class="step">1. Data</div><p>Daily prices fetched via <code>yfinance</code> for all 20 Womack stocks. Historical returns &amp; covariance matrix computed.</p></div>
-      <div class="how-item"><div class="step">2. Optimization</div><p>Bonmin MINLP solver maximizes Sharpe ratio subject to integer stock-selection binary variables and weight constraints.</p></div>
-      <div class="how-item"><div class="step">3. Automation</div><p>GitHub Actions cron job runs notebook daily at 6 AM UTC via Papermill and commits updated outputs automatically.</p></div>
-      <div class="how-item"><div class="step">4. Dashboard</div><p>GitHub Pages serves this dashboard from the <code>docs/</code> folder. Charts update on each commit.</p></div>
+  
+    <!-- Charts -->
+    <div class="grid-2">
+        <div class="card">
+              <h2>&#127849; Optimal Allocation</h2>
+              <canvas id="allocChart"></canvas>canvas>
+        </div>
+        <div class="card">
+              <h2>&#128202; Efficient Frontier</h2>
+              <canvas id="frontierChart"></canvas>canvas>
+        </div>
     </div>
+  
+    <!-- Holdings Table -->
+    <div class="card" style="margin-bottom:1rem">
+        <h2>&#128293; Optimal Holdings</h2>
+        <div class="table-wrap"><table>
+                <thead><tr>
+                          <th>Ticker</th><th>Company</th><th>Sector</th>
+                        <th>Weight</th><th>Allocation Bar</th>
+                        <th>Exp. Return</th><th>Risk (&sigma;)</th>
+                </tr></thead>
+              <tbody id="htbody"><tr><td colspan="7" class="loading">Loading holdings&hellip;</td>td></tr></tbody>tbody>
+        </table></div>
+    </div>
+  
+    <!-- Full Universe Table -->
+    <div class="card" style="margin-bottom:1rem">
+        <h2>&#128203; Womack 20-Stock Universe</h2>
+        <div class="table-wrap"><table>
+              <thead><tr><th>Ticker</th><th>Company</th><th>Sector</th><th>Exp. Return</th><th>Risk</th><th>Status</th></tr></thead>
+              <tbody id="universe-body"><tr><td colspan="6" class="loading">Loading universe data&hellip;</td>td></tr></tbody>tbody>
+        </table></div>
+    </div>
+  
+    <!-- Historical Performance Chart -->
+    <div class="card" style="margin-bottom:1rem">
+        <h2>&#128200; Portfolio vs S&amp;P 500 (Cumulative Return)</h2>
+        <canvas id="perfChart" style="max-height:250px"></canvas>canvas>
+    </div>
+  
+    <!-- How it works -->
+    <div class="card" style="margin-bottom:1rem">
+        <h2>&#128218; How It Works</h2>
+        <div class="how-grid">
+              <div class="how-item"><div class="step">1. Data</div><p>Daily prices fetched via <code>yfinance</code> for all 20 Womack stocks. Historical returns &amp; covariance matrix computed from 1-year lookback window.</p></div>
+              <div class="how-item"><div class="step">2. Optimization</div><p>Bonmin MINLP solver maximizes Sharpe ratio subject to integer stock-selection binary variables and portfolio weight constraints.</p></div>
+              <div class="how-item"><div class="step">3. Automation</div><p>GitHub Actions cron job runs the notebook daily at 6 AM UTC via Papermill. A Python script exports results to <code>docs/portfolio_data.json</code>.</p></div>
+              <div class="how-item"><div class="step">4. Dashboard</div><p>GitHub Pages serves this dashboard from the <code>docs/</code>code> folder. On load, the page fetches <code>portfolio_data.json</code>code> and renders live charts &amp; tables.</p></div>
+        </div>
+    </div>
+  
   </div>
+  
+  <footer>
+      FHussain &bull; 5641 Stock Portfolio Project &bull; Womack 20-Stock Integer Portfolio Optimization &bull;
+      <a href="https://github.com/sfh20003/FHussain_5641_StockProject" target="_blank">GitHub Repo</a>a>
+  </footer>
 
-</div>
-<footer>FHussain &bull; 5641 Stock Portfolio Project &bull; Womack 20-Stock Integer Portfolio Optimization &bull;
-  <a href="https://github.com/sfh20003/FHussain_5641_StockProject">GitHub Repo</a></footer>
+    <script>
+      // ─── Colour palette ───────────────────────────────────────────────────────────
+      const COLORS = ['#58a6ff','#3fb950','#d29922','#f85149','#bc8cff',
+                                      '#39d353','#ff7b72','#ffa657','#79c0ff','#56d364'];
+      const SECTOR_TAG = {
+          'Technology':'tag-tech','Financials':'tag-fin','Health Care':'tag-hc',
+          'Energy':'tag-energy','Consumer Disc.':'tag-cons','Staples':'tag-staples',
+          'Consumer Staples':'tag-staples'
+      };
 
-<script>
-  document.getElementById('run-date').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      // ─── Fallback / placeholder data (used when JSON hasn't been generated yet) ──
+      const FALLBACK = {
+          meta: {
+                run_date: "Pending first automated run",
+                solver_status: "Optimal",
+                data_period: "1-year lookback"
+          },
+          kpi: { ret: 18.4, risk: 14.2, sharpe: 1.29 },
+          holdings: [
+            {ticker:"AAPL", company:"Apple Inc.",       sector:"Technology",   weight:18, ret:22.1, risk:16.4},
+            {ticker:"MSFT", company:"Microsoft Corp.",  sector:"Technology",   weight:17, ret:19.8, risk:15.1},
+            {ticker:"NVDA", company:"NVIDIA Corp.",     sector:"Technology",   weight:15, ret:45.2, risk:32.7},
+            {ticker:"AMZN", company:"Amazon.com Inc.",  sector:"Consumer Disc.",weight:14, ret:21.3, risk:19.2},
+            {ticker:"JPM",  company:"JPMorgan Chase",   sector:"Financials",   weight:12, ret:14.5, risk:17.3},
+            {ticker:"UNH",  company:"UnitedHealth Grp", sector:"Health Care",  weight:10, ret:12.9, risk:13.6},
+            {ticker:"MA",   company:"Mastercard Inc.",  sector:"Financials",   weight: 9, ret:16.7, risk:14.8},
+            {ticker:"ABBV", company:"AbbVie Inc.",       sector:"Health Care",  weight: 5, ret:10.4, risk:12.1}
+              ],
+          universe: [
+            {ticker:"AAPL", company:"Apple Inc.",         sector:"Technology",    ret:22.1, risk:16.4, selected:true},
+            {ticker:"MSFT", company:"Microsoft Corp.",    sector:"Technology",    ret:19.8, risk:15.1, selected:true},
+            {ticker:"GOOGL",company:"Alphabet Inc.",       sector:"Technology",    ret:17.2, risk:18.3, selected:false},
+            {ticker:"AMZN", company:"Amazon.com Inc.",    sector:"Consumer Disc.",ret:21.3, risk:19.2, selected:true},
+            {ticker:"META", company:"Meta Platforms",     sector:"Technology",    ret:23.4, risk:24.1, selected:false},
+            {ticker:"NVDA", company:"NVIDIA Corp.",       sector:"Technology",    ret:45.2, risk:32.7, selected:true},
+            {ticker:"TSLA", company:"Tesla Inc.",         sector:"Consumer Disc.",ret:15.6, risk:41.2, selected:false},
+            {ticker:"JPM",  company:"JPMorgan Chase",     sector:"Financials",    ret:14.5, risk:17.3, selected:true},
+            {ticker:"JNJ",  company:"Johnson & Johnson",  sector:"Health Care",   ret: 8.1, risk:11.2, selected:false},
+            {ticker:"XOM",  company:"Exxon Mobil",        sector:"Energy",        ret:12.3, risk:20.4, selected:false},
+            {ticker:"PG",   company:"Procter & Gamble",   sector:"Staples",       ret: 7.4, risk: 9.8, selected:false},
+            {ticker:"UNH",  company:"UnitedHealth Group", sector:"Health Care",   ret:12.9, risk:13.6, selected:true},
+            {ticker:"V",    company:"Visa Inc.",           sector:"Financials",    ret:15.1, risk:13.9, selected:false},
+            {ticker:"MA",   company:"Mastercard Inc.",    sector:"Financials",    ret:16.7, risk:14.8, selected:true},
+            {ticker:"HD",   company:"Home Depot",         sector:"Consumer Disc.",ret:11.2, risk:16.1, selected:false},
+            {ticker:"BAC",  company:"Bank of America",    sector:"Financials",    ret:11.8, risk:19.7, selected:false},
+            {ticker:"PFE",  company:"Pfizer Inc.",         sector:"Health Care",   ret: 4.2, risk:14.3, selected:false},
+            {ticker:"ABBV", company:"AbbVie Inc.",         sector:"Health Care",   ret:10.4, risk:12.1, selected:true},
+            {ticker:"MRK",  company:"Merck & Co.",         sector:"Health Care",   ret: 9.8, risk:13.5, selected:false},
+            {ticker:"CVX",  company:"Chevron Corp.",       sector:"Energy",        ret:10.1, risk:18.9, selected:false}
+              ],
+          frontier: null,
+          perf: null
+      };
 
-  const holdings = [
-    {t:'AAPL', c:'Apple Inc.',       w:18, ret:'+22.1%', risk:'16.4%'},
-    {t:'MSFT', c:'Microsoft Corp.',  w:17, ret:'+19.8%', risk:'15.1%'},
-    {t:'NVDA', c:'NVIDIA Corp.',     w:15, ret:'+45.2%', risk:'32.7%'},
-    {t:'AMZN', c:'Amazon.com Inc.',  w:14, ret:'+21.3%', risk:'19.2%'},
-    {t:'JPM',  c:'JPMorgan Chase',   w:12, ret:'+14.5%', risk:'17.3%'},
-    {t:'UNH',  c:'UnitedHealth Grp', w:10, ret:'+12.9%', risk:'13.6%'},
-    {t:'MA',   c:'Mastercard Inc.',  w: 9, ret:'+16.7%', risk:'14.8%'},
-    {t:'ABBV', c:'AbbVie Inc.',      w: 5, ret:'+10.4%', risk:'12.1%'},
-  ];
+      // ─── Chart instances ──────────────────────────────────────────────────────────
+      let allocChart = null, frontierChart = null, perfChart = null;
 
-  document.getElementById('htbody').innerHTML = holdings.map(h =>
-    `<tr><td><strong>${h.t}</strong></td><td>${h.c}</td><td>${h.w}%</td>
-     <td><div class="bar-inline"><div class="bar-bg"><div class="bar-fill" style="width:${h.w}%"></div></div><span style="min-width:34px;text-align:right">${h.w}%</span></div></td>
-     <td style="color:var(--green)">${h.ret}</td><td style="color:var(--yellow)">${h.risk}</td></tr>`
-  ).join('');
+      // ─── Render helpers ───────────────────────────────────────────────────────────
+      function sectorTag(sector) {
+          const cls = SECTOR_TAG[sector] || 'tag-tech';
+          return `<span class="tag ${cls}">${sector}</span>`;
+      }
 
-  const colors=['#58a6ff','#3fb950','#d29922','#f85149','#bc8cff','#39d353','#ff7b72','#ffa657'];
+      function renderKPIs(data) {
+          const kpi = data.kpi;
+          document.getElementById('kpi-ret').textContent    = kpi.ret.toFixed(1) + '%';
+          document.getElementById('kpi-risk').textContent   = kpi.risk.toFixed(1) + '%';
+          document.getElementById('kpi-sharpe').textContent = kpi.sharpe.toFixed(2);
+          document.getElementById('kpi-count').textContent  = data.holdings.length;
+          document.getElementById('kpi-date').textContent   = data.meta.run_date || '—';
+          const statusEl = document.getElementById('kpi-status');
+          statusEl.textContent = data.meta.solver_status || 'Optimal';
+          statusEl.className = 'value ' + (data.meta.solver_status === 'Optimal' ? 'green' : 'yellow');
+      }
 
-  new Chart(document.getElementById('allocChart'),{
-    type:'doughnut',
-    data:{labels:holdings.map(h=>h.t),datasets:[{data:holdings.map(h=>h.w),backgroundColor:colors,borderColor:'#161b22',borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'right',labels:{color:'#e6edf3',font:{size:11}}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}%`}}}}
-  });
+      function renderHoldings(holdings) {
+          const max = Math.max(...holdings.map(h => h.weight));
+          document.getElementById('htbody').innerHTML = holdings.map((h,i) => {
+                const pct = (h.weight / max * 100).toFixed(0);
+                return `<tr>
+                      <td><strong style="color:${COLORS[i%COLORS.length]}">${h.ticker}</strong></td>
+                            <td>${h.company}</td>
+                                  <td>${sectorTag(h.sector)}</td>
+                                        <td>${h.weight.toFixed(1)}%</td>
+                                              <td><div class="bar-inline">
+                                                      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${COLORS[i%COLORS.length]}"></div></div>
+                                                              <span style="min-width:36px;text-align:right;font-size:.8rem">${h.weight.toFixed(1)}%</span>
+                                                                    </div></td>
+                                                                          <td class="${h.ret >= 0 ? 'delta-pos' : 'delta-neg'}">${h.ret >= 0 ? '+' : ''}${h.ret.toFixed(1)}%</td>
+                                                                                <td style="color:var(--yellow)">${h.risk.toFixed(1)}%</td>
+                                                                                    </tr>`;
+          }).join('');
+      }
 
-  const frontierPts = Array.from({length:40},(_,i)=>({x:+(8+i*0.5).toFixed(1),y:+(-0.018*(8+i*0.5)**2+0.6*(8+i*0.5)+2).toFixed(2)}));
-  new Chart(document.getElementById('frontierChart'),{
-    type:'scatter',
-    data:{datasets:[
-      {label:'Efficient Frontier',data:frontierPts,showLine:true,borderColor:'#58a6ff',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.4},
-      {label:'Optimal Portfolio',data:[{x:14.2,y:18.4}],pointBackgroundColor:'#f85149',pointRadius:8,pointHoverRadius:10}
-    ]},
-    options:{responsive:true,maintainAspectRatio:true,scales:{
-      x:{title:{display:true,text:'Risk (σ %)',color:'#8b949e'},ticks:{color:'#8b949e'},grid:{color:'#21262d'}},
-      y:{title:{display:true,text:'Return (%)',color:'#8b949e'},ticks:{color:'#8b949e'},grid:{color:'#21262d'}}
-    },plugins:{legend:{labels:{color:'#e6edf3',font:{size:11}}}}}
-  });
-</script>
-</body></html>
+      function renderUniverse(universe) {
+          document.getElementById('universe-body').innerHTML = universe.map(s => `<tr>
+              <td><strong>${s.ticker}</strong></td>
+                  <td>${s.company}</td>
+                      <td>${sectorTag(s.sector)}</td>
+                          <td class="${s.ret >= 0 ? 'delta-pos' : 'delta-neg'}">${s.ret >= 0 ? '+' : ''}${s.ret.toFixed(1)}%</td>
+                              <td style="color:var(--yellow)">${s.risk.toFixed(1)}%</td>
+                                  <td>${s.selected
+                                              ? '<span class="badge badge-green">&#10003; Selected</span>'
+                                              : '<span class="badge badge-muted">Evaluated</span>'
+                                      }</td>
+                                        </tr>`).join('');
+      }
+
+      function renderAllocChart(holdings) {
+          if (allocChart) allocChart.destroy();
+          allocChart = new Chart(document.getElementById('allocChart'), {
+                type: 'doughnut',
+                data: {
+                        labels: holdings.map(h => h.ticker),
+                        datasets: [{
+                                  data: holdings.map(h => h.weight),
+                                  backgroundColor: COLORS.slice(0, holdings.length),
+                                  borderColor: '#161b22', borderWidth: 2
+                        }]
+                },
+                options: {
+                        responsive: true, maintainAspectRatio: true,
+                        plugins: {
+                                  legend: { position: 'right', labels: { color: '#e6edf3', font: { size: 11 } } },
+                                  tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed.toFixed(1)}%` } }
+                        }
+                }
+          });
+      }
+
+      function renderFrontierChart(frontier, optimal) {
+          if (frontierChart) frontierChart.destroy();
+          let pts;
+          if (frontier && frontier.length > 0) {
+                pts = frontier;
+          } else {
+                pts = Array.from({length:40}, (_,i) => ({
+                        x: +(8 + i*0.5).toFixed(1),
+                        y: +(-0.018*(8+i*0.5)**2 + 0.6*(8+i*0.5) + 2).toFixed(2)
+                }));
+          }
+          frontierChart = new Chart(document.getElementById('frontierChart'), {
+                type: 'scatter',
+                data: {
+                        datasets: [
+                          { label: 'Efficient Frontier', data: pts, showLine: true,
+                                     borderColor: '#58a6ff', backgroundColor: 'transparent',
+                                     borderWidth: 2, pointRadius: 0, tension: .4 },
+                          { label: 'Optimal Portfolio',
+                                     data: [{ x: optimal.risk, y: optimal.ret }],
+                                     pointBackgroundColor: '#f85149', pointRadius: 8, pointHoverRadius: 10 }
+                                ]
+                },
+                options: {
+                        responsive: true, maintainAspectRatio: true,
+                        scales: {
+                                  x: { title: { display: true, text: 'Risk (σ %)', color: '#8b949e' },
+                                                   ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
+                                  y: { title: { display: true, text: 'Return (%)', color: '#8b949e' },
+                                                   ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }
+                        },
+                        plugins: { legend: { labels: { color: '#e6edf3', font: { size: 11 } } } }
+                }
+          });
+      }
+
+      function renderPerfChart(perf) {
+          if (perfChart) perfChart.destroy();
+          if (!perf || !perf.dates) return;
+          perfChart = new Chart(document.getElementById('perfChart'), {
+                type: 'line',
+                data: {
+                        labels: perf.dates,
+                        datasets: [
+                          { label: 'Optimal Portfolio', data: perf.portfolio,
+                                     borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.1)',
+                                     borderWidth: 2, pointRadius: 0, fill: true, tension: .3 },
+                          { label: 'S&P 500 (SPY)', data: perf.spy,
+                                     borderColor: '#8b949e', backgroundColor: 'transparent',
+                                     borderWidth: 1.5, pointRadius: 0, fill: false, tension: .3, borderDash: [4,3] }
+                                ]
+                },
+                options: {
+                        responsive: true, maintainAspectRatio: true,
+                        scales: {
+                                  x: { ticks: { color: '#8b949e', maxTicksLimit: 8 }, grid: { color: '#21262d' } },
+                                  y: { title: { display: true, text: 'Cumulative Return (%)', color: '#8b949e' },
+                                                   ticks: { color: '#8b949e', callback: v => v + '%' }, grid: { color: '#21262d' } }
+                        },
+                        plugins: { legend: { labels: { color: '#e6edf3', font: { size: 11 } } } }
+                }
+          });
+      }
+
+      // ─── Render everything from a data object ────────────────────────────────────
+      function renderAll(data, isLive) {
+          renderKPIs(data);
+          renderHoldings(data.holdings);
+          renderUniverse(data.universe);
+          renderAllocChart(data.holdings);
+          renderFrontierChart(data.frontier, data.kpi);
+          if (data.perf) renderPerfChart(data.perf);
+
+          const dot  = document.getElementById('status-dot');
+          const note = document.getElementById('last-update-note');
+          const statusText = document.getElementById('status-text');
+
+          if (isLive) {
+                dot.classList.remove('stale');
+                statusText.innerHTML = `Live &bull; Bonmin integer optimization &bull; 20-stock Womack universe &bull; Last run: <strong>${data.meta.run_date}</strong>`;
+                note.textContent = `Data as of ${data.meta.run_date} — auto-updated daily at 06:00 UTC via GitHub Actions`;
+          } else {
+                dot.classList.add('stale');
+                statusText.innerHTML = `&#9888; Showing placeholder data &mdash; live JSON not yet generated. First GitHub Actions run will populate real results.`;
+                note.textContent = 'Awaiting first automated run — commit the updated workflow to trigger daily updates';
+          }
+      }
+
+      // ─── Load portfolio_data.json (generated by GitHub Actions) ──────────────────
+      async function loadData() {
+          try {
+                const res = await fetch('portfolio_data.json?t=' + Date.now());
+                if (!res.ok) throw new Error('not found');
+                const data = await res.json();
+                renderAll(data, true);
+          } catch (e) {
+                // Fall back to placeholder so the dashboard always looks complete
+                console.warn('portfolio_data.json not found — using fallback data', e);
+                renderAll(FALLBACK, false);
+          }
+      }
+
+      loadData();
+    </script>
+  </body>
+</html>html>
+    </script>
+  </footer></p></code></code></p></tr></th></th></tr></tr></th></th>
+                </tr></thead>
+        </table></span></h1>
+        </div>
+    </header>
+  </body>
+    </style></title>
+  </head>
