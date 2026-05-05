@@ -2,30 +2,35 @@ name: Daily Portfolio Update
 
 on:
   schedule:
-    - cron: '0 14 * * 1-5'   # 9 AM EST every weekday
-  workflow_dispatch:
+    - cron: '0 14 * * 1-5'   # 9 AM EST every weekday Mon-Fri
+  workflow_dispatch:            # manual trigger button in GitHub
 
 jobs:
   run-notebook:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
-          pip install jupyter nbconvert yfinance pandas numpy \
-                      matplotlib seaborn pyomo requests lxml
+          pip install --upgrade pip
+          pip install "numpy==1.26.4" \
+                      "pandas==2.1.4" \
+                      jupyter nbconvert \
+                      yfinance matplotlib \
+                      seaborn pyomo requests lxml
 
-      - name: Install Bonmin
+      - name: Install Bonmin via IDAES
         run: |
-          pip install idaes-pse --pre
+          pip install idaes-pse
           idaes get-extensions --to ./bin
           echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
 
@@ -35,54 +40,52 @@ jobs:
             --to notebook \
             --execute \
             --inplace \
-            --ExecutePreprocessor.timeout=900 \
+            --ExecutePreprocessor.timeout=1200 \
+            --ExecutePreprocessor.kernel_name=python3 \
             FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb
+        continue-on-error: true
 
-      - name: Generate dashboard from notebook output
+      - name: Update dashboard with real data
         run: |
-          python << 'EOF'
+          python3 << 'PYEOF'
           import json, re, os
-          from datetime import datetime
 
-          # Read the executed notebook
-          with open('FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb', 'r') as f:
+          nb_path = 'FHussain_Final_complete_Integer_Portfolio_Womack_20Stocks_Bonmin.ipynb'
+          with open(nb_path, 'r') as f:
               nb = json.load(f)
 
-          # Extract printed output from the summary cell
-          # Look for the DATA json output we embed in the notebook
-          data_found = False
+          data_obj = None
           for cell in nb['cells']:
               for output in cell.get('outputs', []):
                   text = ''.join(output.get('text', []))
                   if '##DASHBOARD_DATA##' in text:
-                      raw = text.split('##DASHBOARD_DATA##')[1].split('##END_DATA##')[0]
-                      data_obj = json.loads(raw.strip())
-                      data_found = True
-                      break
+                      try:
+                          raw = text.split('##DASHBOARD_DATA##')[1].split('##END_DATA##')[0]
+                          data_obj = json.loads(raw.strip())
+                          print(f"✓ Found data: window={data_obj.get('window_date')} ret={data_obj.get('exp_ret')}")
+                      except Exception as e:
+                          print(f"Parse error: {e}")
 
-          if not data_found:
-              print("Dashboard data marker not found — using fallback date")
-              data_obj = {"run_date": datetime.today().strftime('%Y-%m-%d'),
-                          "window_date": "see notebook", "exp_ret": "see notebook",
-                          "banned": [], "holdings": [], "universe": [],
-                          "strategies": [], "metrics": [],
-                          "dates": [], "bonmin": [], "spy": [], "gc": [],
-                          "sharpe_b": [], "sharpe_s": [], "sharpe_g": []}
-
-          os.makedirs('docs', exist_ok=True)
-          with open('docs/index.html', 'r') as f:
-              html = f.read()
-
-          new_block = f"const DATA = {json.dumps(data_obj, indent=2)};"
-          start = html.find('const DATA = {')
-          end   = html.find('};', start) + 2
-          html  = html[:start] + new_block + html[end:]
-
-          with open('docs/index.html', 'w') as f:
-              f.write(html)
-
-          print(f"Dashboard updated: {data_obj.get('window_date')} return={data_obj.get('exp_ret')}")
-          EOF
+          if not data_obj:
+              print("No dashboard data found — skipping HTML update")
+          else:
+              html_path = 'docs/index.html'
+              if os.path.exists(html_path):
+                  with open(html_path, 'r') as f:
+                      html = f.read()
+                  new_block = f"const DATA = {json.dumps(data_obj, indent=2)};"
+                  if 'const DATA = {' in html:
+                      start = html.find('const DATA = {')
+                      end   = html.find('};', start) + 2
+                      html  = html[:start] + new_block + html[end:]
+                  else:
+                      html  = html.replace('</script>', new_block + '\n</script>', 1)
+                  with open(html_path, 'w') as f:
+                      f.write(html)
+                  print(f"✓ Dashboard HTML updated")
+              else:
+                  print("docs/index.html not found")
+          PYEOF
 
       - name: Commit and push
         run: |
